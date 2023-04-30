@@ -1,5 +1,4 @@
-from PyQt5.QtWidgets import QMainWindow
-from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QMainWindow, QMessageBox, QApplication
 from PyQt5 import uic
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
@@ -96,12 +95,74 @@ class MainWindow(QMainWindow):
             self.update_map()
 
     def mousePressEvent(self, event):
+        self.remove_focus()
+        # try:
+        button = event.button()
+        if button == 1:
+            pos = event.pos()
+            x = pos.x()
+            y = pos.y()
+            left_edge_lon = self.lon - ((self.spn / 2) * (650 / 255))
+            top_edge_lat = self.lat + (self.spn / 2)
+            y += 10
+            search_lon = left_edge_lon + (x / 650 * self.spn * (650 / 240))
+            search_lat = top_edge_lat - (y / 400 * self.spn)
+
+            geocoder_apikey = "40d1649f-0493-4b70-98ba-98533de7710b"
+            url = f'https://geocode-maps.yandex.ru/1.x?geocode={search_lon},{search_lat}&apikey={geocoder_apikey}&format=json'
+            response = requests.get(url)
+            json = response.json()
+            pos = json['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']['Point']['pos']
+            try:
+                full_address = json['response']['GeoObjectCollection']['featureMember'][
+                    0]['GeoObject']['metaDataProperty']['GeocoderMetaData']['text']
+                search_text = full_address
+                if self.postal_code == 'on':
+                    code = json['response']['GeoObjectCollection']['featureMember'][
+                        0]['GeoObject']['metaDataProperty']['GeocoderMetaData']['Address']['postal_code']
+                    full_address += ' ' + code
+                self.set_full_address(full_address)
+                self.search_text = search_text
+            except:
+                pass
+            self.point_lon = search_lon
+            self.point_lat = search_lat
+            self.update_map()
+        elif button == 2:
+            pos = event.pos()
+            x = pos.x()
+            y = pos.y()
+            left_edge_lon = self.lon - ((self.spn / 2) * (650 / 255))
+            top_edge_lat = self.lat + (self.spn / 2)
+            y += 10
+            search_lon = left_edge_lon + (x / 650 * self.spn * (650 / 240))
+            search_lat = top_edge_lat - (y / 400 * self.spn)
+
+            ppo_apikey = '73961a13-a537-4463-a34a-bff0205a48e8'
+            geocoder_apikey = "40d1649f-0493-4b70-98ba-98533de7710b"
+            try:
+                url = f'https://geocode-maps.yandex.ru/1.x?geocode={search_lon},{search_lat}&apikey={geocoder_apikey}&format=json'
+                response = requests.get(url)
+                json = response.json()
+                pos = json['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']['Point']['pos']
+                full_address = json['response']['GeoObjectCollection']['featureMember'][
+                    0]['GeoObject']['metaDataProperty']['GeocoderMetaData']['text']
+
+                url = f'https://search-maps.yandex.ru/v1/?lang=ru_RU&apikey={ppo_apikey}&text={full_address}&type=biz&ll={search_lon},{search_lat}'
+                response = requests.get(url).json()
+                print(response)
+                result = response['features'][0]['properties']['name']
+
+                QMessageBox.information(self, 'Результат поиска', result)
+            except:
+                pass
+
+    def remove_focus(self, *args):
         try:
             focused_widget = QApplication.focusWidget()
             focused_widget.clearFocus()
-        except:
-            # пофиг абсолютно
-            pass
+        except Exception as e:
+            print(e)
 
     def type_changed(self, event):
         self.update_map()
